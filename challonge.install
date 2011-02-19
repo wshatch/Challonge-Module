@@ -1,0 +1,9 @@
+<?php
+function challonge_schema()
+{
+    $schema['cache_tournaments'] =
+    $schema['cache_matches'];
+    $schema['cache_participants'];
+    $schema['tournament_records']; 
+}
+?>
