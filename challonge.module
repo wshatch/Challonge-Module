@@ -58,7 +58,7 @@
          );
         $form['tournament']['Name'] = array(
                            '#type' => 'textfield',
-                           '#title' => t('Name')
+                           '#title' => t('Name'),
                            '#required' => TRUE,
                             );
         $form['tournament']['type'] = array(
@@ -72,8 +72,8 @@
                         );
         $form['tournament']['url'] = array(
                             '#type' => 'textfield',
-                            '#title', => t('URL'),
-                            '#required' => TRUE);
+                            '#title' => t('URL'),
+                            '#required' => TRUE
                             );
         $form['tournament']['description'] = array(
                                              '#type' => 'textarea',
@@ -88,8 +88,13 @@
     function challonge_tournament_form_validate($form, &$form_state)
     {
     }
+
+    /**
+     * Implementation of hook_perm
+     */
     function challonge_perm()
     {
+        return array('administer challonge');
     }
 
     function challonge_theme()
@@ -99,15 +104,26 @@
     function challonge_admin()
     {
     }
+
     /**
      * Implementation of hook_menu
      */
     function challonge_menu()
     {
+        return array(
+            'admin/settings/challonge' => array(
+                'title' => t('Challonge'),
+                'description' => t('Adjust the settings for the Challonge module.'),
+                'file' => 'challonge.admin.inc',
+                'page callback' => 'drupal_get_form',
+                'page arguments' => array('challonge_settings_form'),
+                'access arguments' => array('administer challonge'),
+                'type' => MENU_NORMAL_ITEM
+            )
+        );
     }
 
     function challonge_profile_alter(&$account)
     {
     }
-?>
 
