@@ -1,0 +1,6 @@
+; $Id$
+name = "Challonge"
+description = "Challonge integration used for starcraft 2."
+core = 6.x
+package = "Starcraft 2"
+dependencies[] = sc2ranks
