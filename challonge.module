@@ -104,14 +104,19 @@
     function challonge_insert($node)
     {
         $tournament = new ChallongeTournament();
-        $tournament->setParams(array(
+        $params = array(
             'tournament' => array(
                 'name' => $node->title,
                 'tournament_type' => $node->tournament_type,
                 'url' => $node->challonge_url,
                 'description' => $node->body
             )
-        ));
+        );
+        if (strlen($node->subdomain) > 0)
+        {
+            $params['tournament']['subdomain'] = $node->subdomain;
+        }
+        $tournament->setParams($params);
         $xml = $tournament->reqCreate();
         if ($xml->error)
         {
@@ -119,7 +124,7 @@
         }
         else
         {
-            db_query("INSERT INTO {challonge_tournament} (nid, tournament_id, type, url) VALUES (%d, %d, '%s', '%s')", $node->nid, $xml->id, $node->tournament_type, $node->challonge_url);
+            db_query("INSERT INTO {challonge_tournament} (nid, tournament_id, type, url, subdomain) VALUES (%d, %d, '%s', '%s', '%s')", $node->nid, $xml->id, $node->tournament_type, $node->challonge_url, $node->subdomain);
         }
     }
 
@@ -128,7 +133,7 @@
      */
     function challonge_update($node)
     {
-        db_query("UPDATE {challonge_tournament} SET type = '%s', url = '%s' WHERE nid = %d", $node->tournament_type, $node->challonge_url, $node->nid);
+        db_query("UPDATE {challonge_tournament} SET type = '%s', url = '%s', subdomain = '%s' WHERE nid = %d", $node->tournament_type, $node->challonge_url, $node->subdomain, $node->nid);
     }
 
     /**
@@ -167,6 +172,12 @@
                 '#title' => t('Challonge URL'),
                 '#default_value' => $node->challonge_url,
                 '#required' => true
+            ),
+            'subdomain' => array(
+                '#type' => 'textfield',
+                '#title' => t('Challonge Subdomain'),
+                '#default_value' => $node->subdomain,
+                '#required' => false
             )
         );
     }
@@ -176,6 +187,7 @@
      */
     function challonge_validate($node, &$form)
     {
+        // TODO: Make sure it will not cause a duplicate url/subdomain.
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $node->challonge_url))
         {
             form_set_error('challonge_url', t('The url must only contain letters, numbers and underscores.'));

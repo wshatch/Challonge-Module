@@ -36,7 +36,13 @@ function challonge_schema()
                 'url' => array(
                     'description' => 'The tournament url on Challonge.',
                     'type' => 'varchar',
-                    'length' => 255,
+                    'length' => 160,
+                    'not null' => true
+                ),
+                'subdomain' => array(
+                    'description' => 'The tournament subdomain on Challonge.',
+                    'type' => 'varchar',
+                    'length' => 160,
                     'not null' => true
                 )
             ),
@@ -44,7 +50,7 @@ function challonge_schema()
             'unique keys' => array(
                 'nid' => array('nid'),
                 'tournament_id' => array('tournament_id'),
-                'url' => array('url')
+                'url_subdomain' => array('url', 'subdomain')
             )
         )
     );
