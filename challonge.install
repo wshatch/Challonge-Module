@@ -1,8 +1,71 @@
 <?php
+
+/**
+ * Implementation of hook_schema
+ */
 function challonge_schema()
 {
-    $schema['cache_tournaments'];
-    $schema['cache_matches'];
-    $schema['cache_participants'];
-    $schema['tournament_records']; 
+    return array(
+        'challonge_tournament' => array(
+            'description' => 'The Challonge Tournament information to append to the respective node',
+            'fields' => array(
+                'id' => array(
+                    'description' => 'The primary key',
+                    'type' => 'serial',
+                    'unsigned' => true,
+                    'not null' => true
+                ),
+                'nid' => array(
+                    'description' => 'node id',
+                    'type' => 'int',
+                    'unsigned' => true,
+                    'not null' => true
+                ),
+                'tournament_id' => array(
+                    'description' => 'The tournament id on Challonge.',
+                    'type' => 'int',
+                    'unsigned' => true,
+                    'not null' => true
+                ),
+                'type' => array(
+                    'description' => 'The tournament type on Challonge.',
+                    'type' => 'varchar',
+                    'length' => 255,
+                    'not null' => true
+                ),
+                'url' => array(
+                    'description' => 'The tournament url on Challonge.',
+                    'type' => 'varchar',
+                    'length' => 255,
+                    'not null' => true
+                )
+            ),
+            'primary key' => array('id'),
+            'unique keys' => array(
+                'nid' => array('nid'),
+                'tournament_id' => array('tournament_id'),
+                'url' => array('url')
+            )
+        )
+    );
+    //$schema['cache_tournaments'];
+    //$schema['cache_matches'];
+    //$schema['cache_participants'];
 }
+
+/**
+ * Implementation of hook_install
+ */
+function challonge_install()
+{
+    drupal_install_schema('challonge');
+}
+
+/**
+ * Implementation of hook_uninstall
+ */
+function challonge_uninstall()
+{
+    drupal_uninstall_schema('challonge');
+}
+

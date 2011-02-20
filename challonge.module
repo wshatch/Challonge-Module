@@ -1,4 +1,8 @@
 <?php
+
+    require_once(dirname(__FILE__) . '/lib/challonge.php');
+    ChallongeAPI::$api_key = variable_get('challonge_api_key', '');
+
     function helper_add_tournament($name, $type, $url, $optional = array())
     {
         $tournament = new ChallongeTournament(); 
@@ -40,69 +44,12 @@
     {
     }
 
-    /**************************************
-     *     New tournament form            *
-     **************************************/
-
-    function challonge_tournament()
-    {
-        return drupal_get_form('challonge_tournament_form');
-    }
-    function challonge_tournament_form(&$node, $form_state)
-    {
-        $form['tournament'] = array(
-            '#type' => 'fieldset',
-            '#title' => t('Tournament'),
-            '#collaspible' => FALSE,
-            '#collapsed' => FALSE,
-         );
-        $form['tournament']['Name'] = array(
-                           '#type' => 'textfield',
-                           '#title' => t('Name'),
-                           '#required' => TRUE,
-                            );
-        $form['tournament']['type'] = array(
-                           '#type' => 'radios',
-                           '#title'=> 'type',
-                           '#options' => array('single elimination', 
-                                               'double elimination',
-                                               'swiss',
-                                               'round robin'),
-                           '#required' => TRUE,
-                        );
-        $form['tournament']['url'] = array(
-                            '#type' => 'textfield',
-                            '#title' => t('URL'),
-                            '#required' => TRUE
-                            );
-        $form['tournament']['description'] = array(
-                                             '#type' => 'textarea',
-                                             '#title' => t('Description'),
-                                             '#required'=> FALSE);
-        $form['tournament']['submit'] = array(
-                                          '#type' => 'submit',
-                                          '#value' => 'Submit',
-                                        );
-        return $form;
-    }
-    function challonge_tournament_form_validate($form, &$form_state)
-    {
-    }
-
     /**
      * Implementation of hook_perm
      */
     function challonge_perm()
     {
         return array('administer challonge');
-    }
-
-    function challonge_theme()
-    {
-
-    }
-    function challonge_admin()
-    {
     }
 
     /**
@@ -123,7 +70,115 @@
         );
     }
 
-    function challonge_profile_alter(&$account)
+    /**
+     * Implementation of hook_node_info
+     */
+    function challonge_node_info()
     {
+        return array(
+            'tournament' => array(
+                'name' => t('Challonge Tournament'),
+                'module' => 'challonge',
+                'description' => t('A tournament for Challonge.'),
+                'help' => t('A tournament for Challonge.')
+            )
+        );
+    }
+
+    /**
+     * Implementation of hook_load
+     */
+    function challonge_load($node)
+    {
+        $additions = db_fetch_object(db_query("SELECT * FROM {challonge_tournament} WHERE nid = %d", $node->nid));
+        $additions->tournament_type = $additions->type;
+        unset($additions->type);
+        $additions->challonge_url = $additions->url;
+        unset($additions->url);
+        return $additions;
+    }
+
+    /**
+     * Implementation of hook_insert
+     */
+    function challonge_insert($node)
+    {
+        $tournament = new ChallongeTournament();
+        $tournament->setParams(array(
+            'tournament' => array(
+                'name' => $node->title,
+                'tournament_type' => $node->tournament_type,
+                'url' => $node->challonge_url,
+                'description' => $node->body
+            )
+        ));
+        $xml = $tournament->reqCreate();
+        if ($xml->error)
+        {
+            drupal_set_message(t('Error adding to Challonge: @error', array('@error' => $xml->error)));
+        }
+        else
+        {
+            db_query("INSERT INTO {challonge_tournament} (nid, tournament_id, type, url) VALUES (%d, %d, '%s', '%s')", $node->nid, $xml->id, $node->tournament_type, $node->challonge_url);
+        }
+    }
+
+    /**
+     * Implementation of hook_update
+     */
+    function challonge_update($node)
+    {
+        db_query("UPDATE {challonge_tournament} SET type = '%s', url = '%s' WHERE nid = %d", $node->tournament_type, $node->challonge_url, $node->nid);
+    }
+
+    /**
+     * Implementation of hook_form
+     */
+    function challonge_form(&$node, $form_state)
+    {
+        return array(
+            'title' => array(
+                '#type' => 'textfield',
+                '#title' => t('Name'),
+                '#default_value' => $node->title,
+                '#required' => true
+            ),
+            'body' => array(
+                '#type' => 'textarea',
+                '#title' => t('Description'),
+                '#default_value' => $node->body,
+                '#rows' => 20,
+                '#required' => true
+            ),
+            'tournament_type' => array(
+                '#type' => 'select',
+                '#title' => t('Tournament Type'),
+                '#default_value' => $node->tournament_type,
+                '#options' => array(
+                    'single elimination' => t('Single Elimination'),
+                    'double elimination' => t('Double Elimination'),
+                    'swiss' => t('Swiss'),
+                    'round robin' => t('Round Robin')
+                ),
+                '#required' => true
+            ),
+            'challonge_url' => array(
+                '#type' => 'textfield',
+                '#title' => t('Challonge URL'),
+                '#default_value' => $node->challonge_url,
+                '#required' => true
+            )
+        );
+    }
+
+    /**
+     * Implementation of hook_validate
+     */
+    function challonge_validate($node, &$form)
+    {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $node->challonge_url))
+        {
+            form_set_error('challonge_url', t('The url must only contain letters, numbers and underscores.'));
+        }
     }
 

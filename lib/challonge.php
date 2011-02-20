@@ -1,5 +1,5 @@
 <?php
-    include("ChallongeAPI/src/Challonge/API.php");
-    include("ChallongeAPI/src/Challonge/Match.php");
-    include("ChallongeAPI/src/Challonge/Participant.php");
-    include("ChallongeAPI/src/Challonge/Tournament.php");
+    require_once(dirname(__FILE__) . '/Challonge/API.php');
+    require_once(dirname(__FILE__) . '/Challonge/Match.php');
+    require_once(dirname(__FILE__) . '/Challonge/Participant.php');
+    require_once(dirname(__FILE__) . '/Challonge/Tournament.php');
