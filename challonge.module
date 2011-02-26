@@ -17,26 +17,21 @@
         return $tournament->reqCreate();
     }
 
-    /**Creates a challonge participant using the user's sc2 character name. */
-    function helper_add_particpant($tournament_id, $uid, $seed_number = NULL)
+    /**
+     * Creates a participant on challonge using the user's sc2 character name.
+     */
+    function helper_add_participant($tournament_id, $uid, $seed_number = NULL)
     {
-       //Get's the sc2name from the sc2ranks module.   
-       $char_name_field = variable_get("sc2ranks_name_profile_field", "profile_character_name");
-       $result = db_query(
-                          'SELECT {profile_fields}.name, {profile_values}.value
-                           FROM {profile_values}
-                           LEFT JOIN {profile_fields} ON {profile_values}.fid = {profile_fields}.fid
-                           WHERE {profile_values}.uid = %d
-                           AND {profile_fileds}.name IN (\'%s\')', $uid, $char_name_field);
-       $char_info = db_fetch_object($result);
-       //TODO: check for nulls
-       $paricipant_params['participant']['name'] = $char_info ->name; 
-       if($seed_number != NULL){
-           $participant_params['participant']['seed'] = $seed_number;
-       }
-       $participant = new ChallongeParticipant($tournament_id);
-       $participant->setParmas($participant_params);
-       $participant->reqCreate();
+        $user = user_load($uid);
+        $char_name_field = variable_get("challonge_profile_name_field", "name");
+        $participant_params = array();
+        $participant_params['participant']['name'] = $user->$char_name_field; 
+        if($seed_number != NULL){
+            $participant_params['participant']['seed'] = $seed_number;
+        }
+        $participant = new ChallongeParticipant($tournament_id);
+        $participant->setParams($participant_params);
+        return $participant->reqCreate();
     }
 
     function helper_update_cache()
