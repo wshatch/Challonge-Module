@@ -14,15 +14,11 @@
         $tournament_params['tournament']['url'] = $url;    
 
         $tournament->setParams($tournament_params);
-        $tournament->reqCreate();
-    }
-
-    function helper_add_matches($tournament_url, $match_data)
-    {
+        return $tournament->reqCreate();
     }
 
     /**Creates a challonge participant using the user's sc2 character name. */
-    function helper_add_particpant($tournament_id, $uid)
+    function helper_add_particpant($tournament_id, $uid, $seed_number = NULL)
     {
        //Get's the sc2name from the sc2ranks module.   
        $char_name_field = variable_get("sc2ranks_name_profile_field", "profile_character_name");
@@ -35,13 +31,25 @@
        $char_info = db_fetch_object($result);
        //TODO: check for nulls
        $paricipant_params['participant']['name'] = $char_info ->name; 
+       if($seed_number != NULL){
+           $participant_params['participant']['seed'] = $seed_number;
+       }
        $participant = new ChallongeParticipant($tournament_id);
-      
        $participant->setParmas($participant_params);
        $participant->reqCreate();
     }
+
     function helper_update_cache()
     {
+    }
+
+   
+    /**
+     *Displays all the tournaments
+     */ 
+    function challonge_tournament_index()
+    {
+        //Get all the tournaments.
     }
 
     /**
@@ -103,21 +111,17 @@
      */
     function challonge_insert($node)
     {
-        $tournament = new ChallongeTournament();
-        $params = array(
-            'tournament' => array(
-                'name' => $node->title,
-                'tournament_type' => $node->tournament_type,
-                'url' => $node->challonge_url,
-                'description' => $node->body
-            )
-        );
+        //Builds the optional array
+        $params = array();
         if (strlen($node->subdomain) > 0)
         {
-            $params['tournament']['subdomain'] = $node->subdomain;
+            $params['subdomain'] = $node->subdomain;
         }
-        $tournament->setParams($params);
-        $xml = $tournament->reqCreate();
+        if(strlen($node->description) > 0)
+        {
+            $params['description'] = $node->description;
+        }
+        $xml = helper_add_tournament($node->title, $node->tournament_type, $node->url, $params);
         if ($xml->error)
         {
             drupal_set_message(t('Error adding to Challonge: @error', array('@error' => $xml->error)));
@@ -152,7 +156,7 @@
                 '#type' => 'textarea',
                 '#title' => t('Description'),
                 '#default_value' => $node->body,
-                '#rows' => 20,
+                '#rows' => 10,
                 '#required' => true
             ),
             'tournament_type' => array(
