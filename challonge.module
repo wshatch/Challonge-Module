@@ -1,6 +1,7 @@
 <?php
 
     require_once(dirname(__FILE__) . '/lib/challonge.php');
+    module_load_include('inc', 'node', 'node.pages');
     ChallongeAPI::$api_key = variable_get('challonge_api_key', '');
 
     function helper_add_tournament($name, $type, $url, $optional = array())
@@ -39,17 +40,44 @@
        $participant->reqCreate();
     }
 
+    function helper_get_matches($tournament_id)
+    {
+        $matches = new ChallongeMatch($tournament_id);
+        return $matches->reqIndex();
+    }
+
     function helper_update_cache()
     {
     }
 
-   
+    function challonge_theme()
+    {
+        return array(
+             'index' => array(
+                          'template' => 'challonge_index',
+                          'arguments' => array('tournaments' => NULL)
+                        )
+        );
+    }
+  
+    function template_preprocess_challonge_index(&$varibles)
+    {
+        //TODO: clean and validate data here.      
+    } 
     /**
      *Displays all the tournaments
+     *TODO: Should limit tournaments to active ones.
      */ 
     function challonge_tournament_index()
     {
         //Get all the tournaments.
+        $query = db_query('SELECT * FROM {challonge_tournament}');
+        //Send them to a theme.
+       $tournaments = array();
+        while($tournament = db_fetch_object($query)){
+            $tournaments[] = $tournament; 
+        }
+        return theme('index', $tournaments);
     }
 
     /**
@@ -74,7 +102,7 @@
                 'page arguments' => array('challonge_settings_form'),
                 'access arguments' => array('administer challonge'),
                 'type' => MENU_NORMAL_ITEM
-            )
+            ),
         );
     }
 
@@ -99,10 +127,6 @@
     function challonge_load($node)
     {
         $additions = db_fetch_object(db_query("SELECT * FROM {challonge_tournament} WHERE nid = %d", $node->nid));
-        $additions->tournament_type = $additions->type;
-        unset($additions->type);
-        $additions->challonge_url = $additions->url;
-        unset($additions->url);
         return $additions;
     }
 
@@ -121,14 +145,14 @@
         {
             $params['description'] = $node->description;
         }
-        $xml = helper_add_tournament($node->title, $node->tournament_type, $node->url, $params);
+        $xml = helper_add_tournament($node->title, $node->type, $node->url, $params);
         if ($xml->error)
         {
             drupal_set_message(t('Error adding to Challonge: @error', array('@error' => $xml->error)));
         }
         else
         {
-            db_query("INSERT INTO {challonge_tournament} (nid, tournament_id, type, url, subdomain) VALUES (%d, %d, '%s', '%s', '%s')", $node->nid, $xml->id, $node->tournament_type, $node->challonge_url, $node->subdomain);
+            db_query("INSERT INTO {challonge_tournament} (nid, tournament_id, type, url, subdomain) VALUES (%d, %d, '%s', '%s', '%s')", $node->nid, $xml->id, $node->tournament_type, $node->url, $node->subdomain);
         }
     }
 
@@ -137,9 +161,22 @@
      */
     function challonge_update($node)
     {
-        db_query("UPDATE {challonge_tournament} SET type = '%s', url = '%s', subdomain = '%s' WHERE nid = %d", $node->tournament_type, $node->challonge_url, $node->subdomain, $node->nid);
+        db_query("UPDATE {challonge_tournament} SET type = '%s', url = '%s', subdomain = '%s' WHERE nid = %d", $node->tournament_type, $node->url, $node->subdomain, $node->nid);
     }
 
+
+    /**
+     * Implemenataion of hook_view
+     */
+    function challonge_view(&$node, $teaser = FALSE, $page = FALSE)
+    {
+        //Gather tourney info
+        $matches = helper_get_matches($node->url);
+        if($matches->error){
+            drupal_set_message(t('Unable to retrieve matches'));
+        }
+        return $matches;
+    }
     /**
      * Implementation of hook_form
      */
@@ -159,10 +196,11 @@
                 '#rows' => 10,
                 '#required' => true
             ),
+            //FIXME: I believe this code causes a warning to be thrown when trying to edit the tournament.
             'tournament_type' => array(
                 '#type' => 'select',
                 '#title' => t('Tournament Type'),
-                '#default_value' => $node->tournament_type,
+                '#default_value' => $node->type,
                 '#options' => array(
                     'single elimination' => t('Single Elimination'),
                     'double elimination' => t('Double Elimination'),
@@ -171,10 +209,10 @@
                 ),
                 '#required' => true
             ),
-            'challonge_url' => array(
+            'url' => array(
                 '#type' => 'textfield',
                 '#title' => t('Challonge URL'),
-                '#default_value' => $node->challonge_url,
+                '#default_value' => $node->url,
                 '#required' => true
             ),
             'subdomain' => array(
@@ -192,7 +230,7 @@
     function challonge_validate($node, &$form)
     {
         // TODO: Make sure it will not cause a duplicate url/subdomain.
-        if (!preg_match('/^[a-zA-Z0-9_]+$/', $node->challonge_url))
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $node->url))
         {
             form_set_error('challonge_url', t('The url must only contain letters, numbers and underscores.'));
         }

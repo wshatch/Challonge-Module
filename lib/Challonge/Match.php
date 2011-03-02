@@ -7,7 +7,7 @@ class ChallongeMatch extends ChallongeAPI
 {
     protected $tournament_id;
 
-    public function __construct($api_key, $tournament_id)
+    public function __construct($tournament_id)
     {
         $this->tournament_id = $tournament_id;
     }
