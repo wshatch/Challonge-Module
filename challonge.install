@@ -27,7 +27,7 @@ function challonge_schema()
                     'unsigned' => true,
                     'not null' => true
                 ),
-                'type' => array(
+                'tournament_type' => array(
                     'description' => 'The tournament type on Challonge.',
                     'type' => 'varchar',
                     'length' => 255,

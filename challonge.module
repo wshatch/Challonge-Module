@@ -11,7 +11,7 @@
         $tournament_params = array();
         $tournament_params['tournament'] = $optional;
         $tournament_params['tournament']['name'] = $name;    
-        $tournament_params['tournament']['type'] = $type;    
+        $tournament_params['tournament']['tournament_type'] = $type;    
         $tournament_params['tournament']['url'] = $url;    
 
         $tournament->setParams($tournament_params);
@@ -145,14 +145,14 @@
         {
             $params['description'] = $node->description;
         }
-        $xml = helper_add_tournament($node->title, $node->type, $node->url, $params);
+        $xml = helper_add_tournament($node->title, $node->tournament_type, $node->url, $params);
         if ($xml->error)
         {
             drupal_set_message(t('Error adding to Challonge: @error', array('@error' => $xml->error)));
         }
         else
         {
-            db_query("INSERT INTO {challonge_tournament} (nid, tournament_id, type, url, subdomain) VALUES (%d, %d, '%s', '%s', '%s')", $node->nid, $xml->id, $node->tournament_type, $node->url, $node->subdomain);
+            db_query("INSERT INTO {challonge_tournament} (nid, tournament_id, tournament_type, url, subdomain) VALUES (%d, %d, '%s', '%s', '%s')", $node->nid, $xml->id, $node->tournament_type, $node->url, $node->subdomain);
         }
     }
 
@@ -161,7 +161,7 @@
      */
     function challonge_update($node)
     {
-        db_query("UPDATE {challonge_tournament} SET type = '%s', url = '%s', subdomain = '%s' WHERE nid = %d", $node->tournament_type, $node->url, $node->subdomain, $node->nid);
+        db_query("UPDATE {challonge_tournament} SET tournament_type = '%s', url = '%s', subdomain = '%s' WHERE nid = %d", $node->tournament_type, $node->url, $node->subdomain, $node->nid);
     }
 
 
@@ -170,12 +170,15 @@
      */
     function challonge_view(&$node, $teaser = FALSE, $page = FALSE)
     {
+	return $node;
         //Gather tourney info
+        /*
         $matches = helper_get_matches($node->url);
         if($matches->error){
             drupal_set_message(t('Unable to retrieve matches'));
         }
         return $matches;
+        */
     }
     /**
      * Implementation of hook_form
@@ -200,12 +203,12 @@
             'tournament_type' => array(
                 '#type' => 'select',
                 '#title' => t('Tournament Type'),
-                '#default_value' => $node->type,
+                '#default_value' => $node->tournament_type,
                 '#options' => array(
-                    'single elimination' => t('Single Elimination'),
-                    'double elimination' => t('Double Elimination'),
-                    'swiss' => t('Swiss'),
-                    'round robin' => t('Round Robin')
+                    "single elimination" =>t('Single Elimination'),
+                    "double elimination" =>t('Double Elimination'),
+                    "swiss" =>t('Swiss'),
+                    "round robin" =>t('Round Robin')
                 ),
                 '#required' => true
             ),
