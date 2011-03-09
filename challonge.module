@@ -46,8 +46,6 @@
         return $matches->reqIndex();
     }
 
-    }
-
     function helper_edit_tournament($tournament_id, $name, $type, $url, $optional = array())
     {
         $tournament = new ChallongeTournament(); 
