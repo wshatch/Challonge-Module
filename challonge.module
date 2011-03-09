@@ -46,8 +46,37 @@
         return $matches->reqIndex();
     }
 
-    function helper_update_cache()
+    }
+
+    function helper_edit_tournament($tournament_id, $name, $type, $url, $optional = array())
     {
+        $tournament = new ChallongeTournament(); 
+
+        $tournament_params = array();
+        $tournament_params['tournament'] = $optional;
+        $tournament_params['tournament']['name'] = $name;    
+        $tournament_params['tournament']['type'] = $type;    
+        $tournament_params['tournament']['url'] = $url;    
+
+        $tournament->setParams($tournament_params);
+        return $tournament->reqUpdate($tournament_id);
+    }
+
+    /**
+     * Creates a participant on challonge using the user's sc2 character name.
+     */
+    function helper_add_participant($tournament_id, $uid, $seed_number = NULL)
+    {
+        $user = user_load($uid);
+        $char_name_field = variable_get("challonge_profile_name_field", "name");
+        $participant_params = array();
+        $participant_params['participant']['name'] = $user->$char_name_field; 
+        if($seed_number != NULL){
+            $participant_params['participant']['seed'] = $seed_number;
+        }
+        $participant = new ChallongeParticipant($tournament_id);
+        $participant->setParams($participant_params);
+        return $participant->reqCreate();
     }
 
     function challonge_theme()
@@ -130,12 +159,8 @@
         return $additions;
     }
 
-    /**
-     * Implementation of hook_insert
-     */
-    function challonge_insert($node)
+    function challonge_init_tournament_params($node)
     {
-        //Builds the optional array
         $params = array();
         if (strlen($node->subdomain) > 0)
         {
@@ -145,7 +170,16 @@
         {
             $params['description'] = $node->description;
         }
-        $xml = helper_add_tournament($node->title, $node->tournament_type, $node->url, $params);
+        return $params;
+    }
+
+    /**
+     * Implementation of hook_insert
+     */
+    function challonge_insert($node)
+    {
+        $params = challonge_init_tournament_params($node);
+        $xml = helper_add_tournament($node->title, $node->tournament_type, $node->challonge_url, $params);
         if ($xml->error)
         {
             drupal_set_message(t('Error adding to Challonge: @error', array('@error' => $xml->error)));
@@ -162,6 +196,23 @@
     function challonge_update($node)
     {
         db_query("UPDATE {challonge_tournament} SET tournament_type = '%s', url = '%s', subdomain = '%s' WHERE nid = %d", $node->tournament_type, $node->url, $node->subdomain, $node->nid);
+        if ($tournament_id = db_result(db_query("SELECT tournament_id FROM {challonge_tournament} WHERE nid = %d", $node->nid)))
+        {
+            $params = challonge_init_tournament_params($node);
+            $xml = helper_edit_tournament($tournament_id, $node->title, $node->tournament_type, $node->challonge_url, $params);
+            if ($xml->error)
+            {
+                drupal_set_message(t('Error updating to Challonge: @error', array('@error' => $xml->error)));
+            }
+            else
+            {
+                db_query("UPDATE {challonge_tournament} SET tournament_id = %d, type = '%s', url = '%s', subdomain = '%s' WHERE nid = %d", $xml->id, $node->tournament_type, $node->challonge_url, $node->subdomain, $node->nid);
+            }
+        }
+        else
+        {
+            challonge_insert($node);
+        }
     }
 
 
@@ -199,7 +250,6 @@
                 '#rows' => 10,
                 '#required' => true
             ),
-            //FIXME: I believe this code causes a warning to be thrown when trying to edit the tournament.
             'tournament_type' => array(
                 '#type' => 'select',
                 '#title' => t('Tournament Type'),
