@@ -14,17 +14,17 @@ class ChallongeMatch extends ChallongeAPI
 
     public function reqIndex()
     {
-        return $this->request("/{$this->tournament_id}/participants");
+        return $this->request("/{$this->tournament_id}/matches");
     }
 
     public function reqShow($id)
     {
-        return $this->request("/{$this->tournament_id}/participants/$id");
+        return $this->request("/{$this->tournament_id}/matches/$id");
     }
 
     public function reqUpdate($id)
     {
-        return $this->request("/{$this->tournament_id}/participants/$id", 'put');
+        return $this->request("/{$this->tournament_id}/matches/$id", 'put');
     }
 }
 
