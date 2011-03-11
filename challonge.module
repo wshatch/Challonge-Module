@@ -42,7 +42,7 @@
 
     function helper_get_matches($tournament_id)
     {
-        $matches = new ChallongeMatch($tournament_id);
+        $matches = new ChallongeMatch($tournament_id);	
         return $matches->reqIndex();
     }
 
@@ -80,6 +80,9 @@
     function challonge_theme()
     {
         return array(
+             'challonge_view' => array(
+                          'arguements' => array('node' => NULL, 'teaser' => NULL, 'page' => NULL)
+             ),
              'index' => array(
                           'template' => 'challonge_index',
                           'arguments' => array('tournaments' => NULL)
@@ -122,14 +125,14 @@
     {
         return array(
             'admin/settings/challonge' => array(
-                'title' => t('Challonge'),
-                'description' => t('Adjust the settings for the Challonge module.'),
-                'file' => 'challonge.admin.inc',
-                'page callback' => 'drupal_get_form',
-                'page arguments' => array('challonge_settings_form'),
-                'access arguments' => array('administer challonge'),
-                'type' => MENU_NORMAL_ITEM
-            ),
+                                            'title' => t('Challonge'),
+                                            'description' => t('Adjust the settings for the Challonge module.'),
+                                            'file' => 'challonge.admin.inc',
+                                            'page callback' => 'drupal_get_form',
+                                            'page arguments' => array('challonge_settings_form'),
+                                            'access arguments' => array('administer challonge'),
+                                            'type' => MENU_NORMAL_ITEM
+                                          ),
         );
     }
 
@@ -146,6 +149,18 @@
                 'help' => t('A tournament for Challonge.')
             )
         );
+    }
+    /**
+     * Implementation of hook_delete
+     */
+    function challonge_delete(&$node)
+    {
+        $tournament = new ChallongeTournament();
+        //FIXME: currently, the tournament isn't destroyed on Challonge's end.
+        $xml = $tournament->reqDestroy($node->url);
+        if($xml->error){
+            drupal_set_message(t('Unable to delete the tournament from the Challonge account.'), 'error');
+        } 
     }
 
     /**
@@ -177,13 +192,14 @@
     function challonge_insert($node)
     {
         $params = challonge_init_tournament_params($node);
-        $xml = helper_add_tournament($node->title, $node->tournament_type, $node->challonge_url, $params);
+        $xml = helper_add_tournament($node->title, $node->tournament_type, $node->url, $params);
         if ($xml->error)
         {
             drupal_set_message(t('Error adding to Challonge: @error', array('@error' => $xml->error)));
         }
         else
         {
+            //after we publish, insert into the database
             db_query("INSERT INTO {challonge_tournament} (nid, tournament_id, tournament_type, url, subdomain) VALUES (%d, %d, '%s', '%s', '%s')", $node->nid, $xml->id, $node->tournament_type, $node->url, $node->subdomain);
         }
     }
@@ -219,15 +235,58 @@
      */
     function challonge_view(&$node, $teaser = FALSE, $page = FALSE)
     {
-	return $node;
-        //Gather tourney info
-        /*
-        $matches = helper_get_matches($node->url);
+        $node->content["matches"] = array(
+            '#value' => theme('challonge_view', $node, $teaser, $page)
+        );
         if($matches->error){
             drupal_set_message(t('Unable to retrieve matches'));
         }
-        return $matches;
-        */
+        
+	return $node;
+    }
+
+    function theme_challonge_view($node, $teaser = FALSE, $page = FALSE)
+    {
+        $output = '<iframe src="http://challonge.com/'.$node->url.'/module?width=600&height=600" 
+                               width="600" height="600" frameborder="0" scrolling="no"></iframe>';
+        if($page){
+            $output .= "<h3 id='current_matches'> Current Matches </h3>";
+            $output .= "<ul id='challonge_matches'>";
+            $matches = helper_get_matches($node->url);
+ 
+            //Gather the current matches.
+            foreach($matches as $match)
+            {
+                //skip if the match has already been played.
+                $state = $match->xpath("state");
+                $state = $state[0];
+                if($state != "open"){
+                    continue;
+                }
+                //Get the two player info for the current matches.
+                $player1_id = $match->xpath("player1-id");
+                $player1_id = $player1_id[0];
+
+                $player2_id = $match->xpath("player2-id");
+                $player2_id = $player2_id[0];
+
+                $participant = new ChallongeParticipant($node->url);
+                if($player1_id != ''){
+                    $player_1_xml = $participant->reqShow($player1_id);
+                    $player1 = $player_1_xml->name;
+                }
+                if($player2_id != ''){
+                    $player_2_xml = $participant->reqShow($player2_id);
+                    $player2 = $player_2_xml->name;
+                }
+                $output .= "<li class='challonge_match'> <span class='player1'>".$player1." </span> <span class='vs'> VS </span> <span class='player2'>". $player2 . "</span> </li>";
+
+            }
+            $output .= "</ul>";
+        }
+        //TODO: add a link to join the tournament. 
+        return $output;
+
     }
     /**
      * Implementation of hook_form
@@ -280,7 +339,6 @@
      */
     function challonge_validate($node, &$form)
     {
-        // TODO: Make sure it will not cause a duplicate url/subdomain.
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $node->url))
         {
             form_set_error('challonge_url', t('The url must only contain letters, numbers and underscores.'));

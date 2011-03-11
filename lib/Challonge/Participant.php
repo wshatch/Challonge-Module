@@ -22,9 +22,9 @@ class ChallongeParticipant extends ChallongeAPI
         return $this->request("/{$this->tournament_id}/participants", 'post');
     }
 
-    public function reqShow($id)
+    public function reqShow($id, $debug= FALSE)
     {
-        return $this->request("/{$this->tournament_id}/participants/$id");
+        return $this->request("/{$this->tournament_id}/participants/$id", 'get', array(), $debug);
     }
 
     public function reqUpdate($id)
