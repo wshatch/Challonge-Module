@@ -108,8 +108,8 @@
      */
     function challonge_menu()
     {
-        return array(
-            'admin/settings/challonge' => array(
+        $items = array();
+        $items['admin/settings/challonge'] = array(
                                             'title' => t('Challonge'),
                                             'description' => t('Adjust the settings for the Challonge module.'),
                                             'file' => 'challonge.admin.inc',
@@ -117,16 +117,25 @@
                                             'page arguments' => array('challonge_settings_form'),
                                             'access arguments' => array('administer challonge'),
                                             'type' => MENU_NORMAL_ITEM
-                                          ),
-            //FIXME: Currently drupal doesn't recognize this URL.
-            'challonge/%node_id/join' => array(
+        );
+        $items['challonge_join/%'] = array(
                                              'title' => t('Join Tournament'),
                                              'page callback' => 'challonge_join',
                                              'page arguments' =>array(1),
-                                             'access arguments' => array('join tournament'),
+                                             'access arguments' => array('join tournaments'),
                                              'type' => MENU_CALLBACK
-                                           )
         );
+        $items['challonge/test'] = array(
+                                      'title' => t('test'),
+                                      'access arguments' => array('join tournaments'),
+                                      'page callback' => 'challonge_test',
+                                      'type' => MENU_CALLBACK
+                                     );
+        return $items;
+    }
+    function challonge_test()
+    {
+        return "test";
     }
 
     /**
@@ -282,7 +291,7 @@
             $output .= "</ul>";
         }
         
-        $output .= "<div id='join'>". l(t('Click here to join this tournament'), 'challonge/'.$node->nid.'/join'). "</div>";
+        $output .= "<div id='join'>". l(t('Click here to join this tournament'), 'challonge_join/'.$node->nid). "</div>";
         return $output;
 
     }
@@ -342,7 +351,7 @@
         if(!$node->url)
         {
              //We can't join a tournament that's not there.
-             return theme('challonge_join', 'Unable to find the tournament.');
+             return theme('challonge_join', 'Unable to find the tournament with the id ' . $node->url);
         }
         $participant = helper_add_participant($node->url, $user->uid);
         if($participant->error)
@@ -351,6 +360,7 @@
         }
         return theme('challonge_join');
     }
+
     /**
      * Implementation of hook_validate
      */
