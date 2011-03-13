@@ -18,28 +18,6 @@
         return $tournament->reqCreate();
     }
 
-    /**Creates a challonge participant using the user's sc2 character name. */
-    function helper_add_particpant($tournament_id, $uid, $seed_number = NULL)
-    {
-       //Get's the sc2name from the sc2ranks module.   
-       $char_name_field = variable_get("sc2ranks_name_profile_field", "profile_character_name");
-       $result = db_query(
-                          'SELECT {profile_fields}.name, {profile_values}.value
-                           FROM {profile_values}
-                           LEFT JOIN {profile_fields} ON {profile_values}.fid = {profile_fields}.fid
-                           WHERE {profile_values}.uid = %d
-                           AND {profile_fileds}.name IN (\'%s\')', $uid, $char_name_field);
-       $char_info = db_fetch_object($result);
-       //TODO: check for nulls
-       $paricipant_params['participant']['name'] = $char_info ->name; 
-       if($seed_number != NULL){
-           $participant_params['participant']['seed'] = $seed_number;
-       }
-       $participant = new ChallongeParticipant($tournament_id);
-       $participant->setParmas($participant_params);
-       $participant->reqCreate();
-    }
-
     function helper_get_matches($tournament_id)
     {
         $matches = new ChallongeMatch($tournament_id);	
@@ -69,9 +47,12 @@
         $char_name_field = variable_get("challonge_profile_name_field", "name");
         $participant_params = array();
         $participant_params['participant']['name'] = $user->$char_name_field; 
+        $participant_params['participant']['seed'] = $uid;
+
         if($seed_number != NULL){
             $participant_params['participant']['seed'] = $seed_number;
         }
+
         $participant = new ChallongeParticipant($tournament_id);
         $participant->setParams($participant_params);
         return $participant->reqCreate();
@@ -80,8 +61,12 @@
     function challonge_theme()
     {
         return array(
+             'challonge_join' => array(
+                          'arguments' => array('error' => NULL),
+                          'template' => 'challonge_join'
+             ),
              'challonge_view' => array(
-                          'arguements' => array('node' => NULL, 'teaser' => NULL, 'page' => NULL)
+                          'arguments' => array('node' => NULL, 'teaser' => NULL, 'page' => NULL)
              ),
              'index' => array(
                           'template' => 'challonge_index',
@@ -115,7 +100,7 @@
      */
     function challonge_perm()
     {
-        return array('administer challonge');
+        return array('administer challonge', 'create tournaments', 'join tournaments');
     }
 
     /**
@@ -133,6 +118,14 @@
                                             'access arguments' => array('administer challonge'),
                                             'type' => MENU_NORMAL_ITEM
                                           ),
+            //FIXME: Currently drupal doesn't recognize this URL.
+            'challonge/%node_id/join' => array(
+                                             'title' => t('Join Tournament'),
+                                             'page callback' => 'challonge_join',
+                                             'page arguments' =>array(1),
+                                             'access arguments' => array('join tournament'),
+                                             'type' => MENU_CALLBACK
+                                           )
         );
     }
 
@@ -245,6 +238,9 @@
 	return $node;
     }
 
+    /**
+     * Theme function for challonge_view
+     */
     function theme_challonge_view($node, $teaser = FALSE, $page = FALSE)
     {
         $output = '<iframe src="http://challonge.com/'.$node->url.'/module?width=600&height=600" 
@@ -282,9 +278,11 @@
                 $output .= "<li class='challonge_match'> <span class='player1'>".$player1." </span> <span class='vs'> VS </span> <span class='player2'>". $player2 . "</span> </li>";
 
             }
+            //Join tournament link.
             $output .= "</ul>";
         }
-        //TODO: add a link to join the tournament. 
+        
+        $output .= "<div id='join'>". l(t('Click here to join this tournament'), 'challonge/'.$node->nid.'/join'). "</div>";
         return $output;
 
     }
@@ -334,6 +332,25 @@
         );
     }
 
+    /**
+     * Function that allows a user to join a tournament.
+     */
+    function challonge_join($node_id)
+    {
+        global $user;
+        $node = node_load($node_id);
+        if(!$node->url)
+        {
+             //We can't join a tournament that's not there.
+             return theme('challonge_join', 'Unable to find the tournament.');
+        }
+        $participant = helper_add_participant($node->url, $user->uid);
+        if($participant->error)
+        {
+             return theme('challonge_join', $participant->error);
+        }
+        return theme('challonge_join');
+    }
     /**
      * Implementation of hook_validate
      */
