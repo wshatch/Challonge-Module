@@ -18,6 +18,11 @@
         return $tournament->reqCreate();
     }
 
+    function helper_publish_tournament($tournament_id)
+    {
+       $tournament = new ChallongeTournament();
+       return $tournament->reqPublish($tournament_id); 
+    }
     function helper_get_matches($tournament_id)
     {
         $matches = new ChallongeMatch($tournament_id);	
@@ -177,7 +182,7 @@
     function challonge_init_tournament_params($node)
     {
         $params = array();
-        if (strlen($node->subdomain) > 0)
+        if(strlen($node->subdomain) > 0)
         {
             $params['subdomain'] = $node->subdomain;
         }
@@ -194,6 +199,12 @@
     function challonge_insert($node)
     {
         $params = challonge_init_tournament_params($node);
+        $published_results = helper_publish_tournament($node->url);
+
+        if($published_results->error)
+        {
+            drupal_set_message(t('Error publishing the tournament: @error', array('@error' => $xml->error)));
+        }
         $xml = helper_add_tournament($node->title, $node->tournament_type, $node->url, $params);
         if ($xml->error)
         {
@@ -211,18 +222,26 @@
      */
     function challonge_update($node)
     {
-        db_query("UPDATE {challonge_tournament} SET tournament_type = '%s', url = '%s', subdomain = '%s' WHERE nid = %d", $node->tournament_type, $node->url, $node->subdomain, $node->nid);
+        //TODO: repeat code, refactor into helper_publish_tournament?
+        $published_results = helper_publish_tournament($node->url);
+
+        if($published_results->error)
+        {
+            drupal_set_message(t('Error publishing the tournament: @error', array('@error' => $xml->error)));
+        }
+
         if ($tournament_id = db_result(db_query("SELECT tournament_id FROM {challonge_tournament} WHERE nid = %d", $node->nid)))
         {
             $params = challonge_init_tournament_params($node);
-            $xml = helper_edit_tournament($tournament_id, $node->title, $node->tournament_type, $node->challonge_url, $params);
+            $xml = helper_edit_tournament($tournament_id, $node->title, $node->tournament_type, $node->url, $params);
+
             if ($xml->error)
             {
                 drupal_set_message(t('Error updating to Challonge: @error', array('@error' => $xml->error)));
             }
             else
             {
-                db_query("UPDATE {challonge_tournament} SET tournament_id = %d, type = '%s', url = '%s', subdomain = '%s' WHERE nid = %d", $xml->id, $node->tournament_type, $node->challonge_url, $node->subdomain, $node->nid);
+                db_query("UPDATE {challonge_tournament} SET tournament_id = %d, tournament_type = '%s', url = '%s', subdomain = '%s' WHERE nid = %d", $xml->id, $node->tournament_type, $node->url, $node->subdomain, $node->nid);
             }
         }
         else
@@ -337,7 +356,11 @@
                 '#title' => t('Challonge Subdomain'),
                 '#default_value' => $node->subdomain,
                 '#required' => false
-            )
+            ),
+            'publish' => array(
+                '#type' => 'checkbox',
+                '#title' => t('Publish') 
+            ) 
         );
     }
 
