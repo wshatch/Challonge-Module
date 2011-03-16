@@ -4,6 +4,9 @@
     module_load_include('inc', 'node', 'node.pages');
     ChallongeAPI::$api_key = variable_get('challonge_api_key', '');
 
+
+    //TODO: most of these helper functions could probably be refactored into the challonge
+   //library.
     function helper_add_tournament($name, $type, $url, $optional = array())
     {
         $tournament = new ChallongeTournament(); 
@@ -18,11 +21,34 @@
         return $tournament->reqCreate();
     }
 
+    function helper_report_winner($tournament_id, $match_id, $winner_id)
+    {
+        $match = new ChallongeMatch($toournament_id);
+        $match_params = array();
+        if($winner_id == "player1"){
+            $match_params['match']['scores_csv'] = "1-0";
+        }
+        else if($winner_id == "player2"){
+            $match_params['match']['scores_csv'] = "0-1";
+        }
+        $match_params['match']['winner_id'] = $winnder_id; 
+ 
+        $match->setParams($match_params);
+        return $match->reqUpdate();
+    }
+
     function helper_publish_tournament($tournament_id)
     {
        $tournament = new ChallongeTournament();
        return $tournament->reqPublish($tournament_id); 
     }
+
+    function helper_start_tournament($tournament_id)
+    {
+       $tournament = new ChallongeTournament();
+       //TODO: finish this function.
+    }
+
     function helper_get_matches($tournament_id)
     {
         $matches = new ChallongeMatch($tournament_id);	
@@ -63,6 +89,50 @@
         return $participant->reqCreate();
     }
 
+    /**
+     * Helper function that returns an array of participants
+     * in ACTIVE matches. Return NULL if there are none.
+     */
+    function helper_get_participants($matches, $tournament_id)
+    {
+        $participant_array = array();
+        if($matches == NULL){
+            return NULL;
+        } 
+        /*TODO: Code probabaly needs to be optimize to lower requests
+          to challonge*/
+        foreach($matches as $match)
+        {
+            //skip if the match has already been played.
+            $state = $match->xpath("state");
+            $state = $state[0];
+            if($state != "open"){
+                continue;
+            }
+            //Get the two player info for the current matches.
+            $player1_id = $match->xpath("player1-id");
+            $player1_id = $player1_id[0];
+
+            $player2_id = $match->xpath("player2-id");
+            $player2_id = $player2_id[0];
+
+            $participant = new ChallongeParticipant($tournament_id);
+            if($player1_id != ''){
+                $player_1_xml = $participant->reqShow($player1_id);
+                $player1 = (string)$player_1_xml->name;
+            }
+            if($player2_id != ''){
+                $player_2_xml = $participant->reqShow($player2_id);
+                $player2 = (string)$player_2_xml->name;
+            }
+            $participant_array[] = array('player1' => $player1, 'player2' =>$player2);
+        }
+        return $participant_array;
+    }
+
+    /**
+     * Implementation of hook_theme
+     */
     function challonge_theme()
     {
         return array(
@@ -199,8 +269,9 @@
     function challonge_insert($node)
     {
         $params = challonge_init_tournament_params($node);
+        //TODO: what if publish isn't selected.
         $published_results = helper_publish_tournament($node->url);
-
+       
         if($published_results->error)
         {
             drupal_set_message(t('Error publishing the tournament: @error', array('@error' => $xml->error)));
@@ -223,13 +294,16 @@
     function challonge_update($node)
     {
         //TODO: repeat code, refactor into helper_publish_tournament?
-        $published_results = helper_publish_tournament($node->url);
-
-        if($published_results->error)
-        {
-            drupal_set_message(t('Error publishing the tournament: @error', array('@error' => $xml->error)));
+        if($node->publish){
+           $published_results = helper_publish_tournament($node->url);
+           if($published_results->error)
+           {
+               drupal_set_message(t('Error publishing the tournament: @error', array('@error' => $xml->error)));
+           }
         }
-
+        if($node->start){
+           helper_start_tournament($node->url);
+        }
         if ($tournament_id = db_result(db_query("SELECT tournament_id FROM {challonge_tournament} WHERE nid = %d", $node->nid)))
         {
             $params = challonge_init_tournament_params($node);
@@ -274,40 +348,21 @@
         $output = '<iframe src="http://challonge.com/'.$node->url.'/module?width=600&height=600" 
                                width="600" height="600" frameborder="0" scrolling="no"></iframe>';
         if($page){
+            /* Code is too damn slow
             $output .= "<h3 id='current_matches'> Current Matches </h3>";
             $output .= "<ul id='challonge_matches'>";
             $matches = helper_get_matches($node->url);
- 
-            //Gather the current matches.
-            foreach($matches as $match)
+            $match_participants = helper_get_participants($matches, $node->url); 
+            var_dump($match_participants);
+
+            foreach($match_participants as $participant)
             {
-                //skip if the match has already been played.
-                $state = $match->xpath("state");
-                $state = $state[0];
-                if($state != "open"){
-                    continue;
-                }
-                //Get the two player info for the current matches.
-                $player1_id = $match->xpath("player1-id");
-                $player1_id = $player1_id[0];
-
-                $player2_id = $match->xpath("player2-id");
-                $player2_id = $player2_id[0];
-
-                $participant = new ChallongeParticipant($node->url);
-                if($player1_id != ''){
-                    $player_1_xml = $participant->reqShow($player1_id);
-                    $player1 = $player_1_xml->name;
-                }
-                if($player2_id != ''){
-                    $player_2_xml = $participant->reqShow($player2_id);
-                    $player2 = $player_2_xml->name;
-                }
-                $output .= "<li class='challonge_match'> <span class='player1'>".$player1." </span> <span class='vs'> VS </span> <span class='player2'>". $player2 . "</span> </li>";
-
+                $output .= "<li class='challonge_match'> <span class='player1'>".$participant['player1'].
+                           "</span> <span class='vs'> VS </span> <span class='player2'>". $participant['player2'] . "</span> </li>";
             }
             //Join tournament link.
             $output .= "</ul>";
+            */
         }
         
         $output .= "<div id='join'>". l(t('Click here to join this tournament'), 'challonge_join/'.$node->nid). "</div>";
@@ -319,7 +374,13 @@
      */
     function challonge_form(&$node, $form_state)
     {
-        return array(
+        $items = array();
+        $items['tournament_settings'] = array(
+            '#type' => 'fieldset',
+            '#title' => t('Tournament settings'),
+            '#collapsible' => TRUE
+        );
+        $items['tournament_settings']["settings"] = array(
             'title' => array(
                 '#type' => 'textfield',
                 '#title' => t('Name'),
@@ -360,8 +421,43 @@
             'publish' => array(
                 '#type' => 'checkbox',
                 '#title' => t('Publish') 
-            ) 
+            ),
+            'start' => array(
+                '#type' => 'checkbox',
+                '#title' => t('Start')
+            )
         );
+        if($node->url){
+             //TODO: create the array for creating seeds.
+             //$items['matches and participants'] = array();
+             //Create the array for reporting winners.
+             $matches = helper_get_matches($node->url);
+             $options = array();
+             $participants = helper_get_participants($matches, $node->url);
+
+             for($i = 0; $i < sizeof($participants); $i++)
+             {
+ 
+                $option = $participants[$i]; 
+                $option['none'] = 'none';
+                var_dump($option);
+                //normal indexing for normal people
+                $index= $i +1;
+                $options["match $index"] = array( 
+                    '#type' => 'select',
+                    '#title' => "match $index",
+                    '#options' => $option,
+                    '#default_value' => 'none'
+                );
+             }
+             $items['match_settings'] = array(
+                 '#type' => 'fieldset',
+                 '#title' => t('Match settings'),
+                 '#collapsible' => TRUE
+             );
+             $items['match_settings']['match options'] = $options;
+        }
+        return $items; 
     }
 
     /**
