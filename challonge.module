@@ -308,11 +308,7 @@
         drupal_set_message($node->match_count);
         if($node->match_count){
             for($i = 0; $i < $node->match_count; $i++){
-                $index = (string)($i+1);
-                $match_string = "match_$index";
-                $match_info = $node->match_settings[$index_string] ;
-                drupal_set_message(print_r($match_info, TRUE)); 
-                drupal_set_message(print_r($node->match_settings[$index_string], TRUE)); 
+                $match_info = $node->match_settings[$i] ;
                 if($match_info['winner'] == 'none'){
                     continue; 
                 }
@@ -478,15 +474,14 @@
              $match_count = sizeof($matches);
              for($i = 0; $i < $match_count; $i++)
              {
-                $index= $i + 1;
-                $index_string = "match_$index";
-                $items['match_settings'][$index_string] = array(
+                $index = $i + 1;
+                $items['match_settings'][$i] = array(
                      '#type' => 'fieldset',
                      '#title' => t("match $index"),
                      '#collapsible' => FALSE,
                      '#tree' => TRUE
                 );
-                $items['match_settings'][$index_string]['match_id'] = array(
+                $items['match_settings'][$i]['match_id'] = array(
                      '#type' => 'value',
                      '#value' => $participants[$i]['match_id']
                 );
@@ -498,20 +493,20 @@
 
                 $options['none'] = 'none';
 
-                $items['match_settings'][$index_string]['winner'] = array( 
+                $items['match_settings'][$i]['winner'] = array( 
                     '#type' => 'select',
                     '#title' => "winner",
                     '#options' => $options,
                     '#default_value' => 'none'
                 );
                 //FIXME: currently the size is default even with the size tags.
-                $items['match_settings'][$index_string]['player1_score'] = array(
+                $items['match_settings'][$i]['player1_score'] = array(
                    '#type' => 'textfield',
                    '#title' => t("$player1's score"),
                    '#size' => 2,
                    '#maxlength' => 2
                 );
-                $items['match_settings'][$index_string]['player2_score'] = array(
+                $items['match_settings'][$i]['player2_score'] = array(
                    '#type' => 'textfield',
                    '#title' => t("$player2's score"),
                    '#size' => 2,
