@@ -4,6 +4,8 @@
     module_load_include('inc', 'node', 'node.pages');
     ChallongeAPI::$api_key = variable_get('challonge_api_key', '');
 
+    $challonge_has_matches;
+    $challonge_match_count;
 
     //TODO: most of these helper functions could probably be refactored into the challonge
    //library.
@@ -21,20 +23,14 @@
         return $tournament->reqCreate();
     }
 
-    function helper_report_winner($tournament_id, $match_id, $winner_id)
+    function helper_report_winner($tournament_id, $match_id, $winner_id, $scores)
     {
         $match = new ChallongeMatch($toournament_id);
         $match_params = array();
-        if($winner_id == "player1"){
-            $match_params['match']['scores_csv'] = "1-0";
-        }
-        else if($winner_id == "player2"){
-            $match_params['match']['scores_csv'] = "0-1";
-        }
-        $match_params['match']['winner_id'] = $winnder_id; 
- 
+        $match_params['match']['winner_id'] = $winnder_id;
+        $match_params['match']['scores_csv'] = $scores;
         $match->setParams($match_params);
-        return $match->reqUpdate();
+        return $match->reqUpdate($match_id);
     }
 
     function helper_publish_tournament($tournament_id)
@@ -46,13 +42,29 @@
     function helper_start_tournament($tournament_id)
     {
        $tournament = new ChallongeTournament();
-       //TODO: finish this function.
+       $tournament->reqStart($tournament_id);
     }
 
-    function helper_get_matches($tournament_id)
+    function helper_get_matches($tournament_id, $active_only = FALSE)
     {
         $matches = new ChallongeMatch($tournament_id);	
-        return $matches->reqIndex();
+        $matches_xml = $matches->reqIndex();
+        if(!$active_only){
+            return $matches_xml;
+        }
+        $match_array = array();
+
+        foreach($matches_xml as $match){
+            //skip if the match has already been played.
+            $state = $match->xpath("state");
+            $state = $state[0];
+            if($state != "open"){
+                continue;
+            }
+            $match_array[] = $match;
+        }
+        return $match_array;
+        
     }
 
     function helper_edit_tournament($tournament_id, $name, $type, $url, $optional = array())
@@ -103,12 +115,6 @@
           to challonge*/
         foreach($matches as $match)
         {
-            //skip if the match has already been played.
-            $state = $match->xpath("state");
-            $state = $state[0];
-            if($state != "open"){
-                continue;
-            }
             //Get the two player info for the current matches.
             $player1_id = $match->xpath("player1-id");
             $player1_id = $player1_id[0];
@@ -125,10 +131,13 @@
                 $player_2_xml = $participant->reqShow($player2_id);
                 $player2 = (string)$player_2_xml->name;
             }
-            $participant_array[] = array('player1' => $player1, 'player2' =>$player2);
+            $participant_array[] = array(((string)$player1_id) => $player1,((string)$player2_id)=> $player2);
+            //Getting the match id for each participant is a good thing.
+            $return_array[] = array('match_id'=>(string)$match->id,'participants'=> $participant_array);
         }
-        return $participant_array;
+        return $return_array;
     }
+
 
     /**
      * Implementation of hook_theme
@@ -208,10 +217,6 @@
                                      );
         return $items;
     }
-    function challonge_test()
-    {
-        return "test";
-    }
 
     /**
      * Implementation of hook_node_info
@@ -269,13 +274,7 @@
     function challonge_insert($node)
     {
         $params = challonge_init_tournament_params($node);
-        //TODO: what if publish isn't selected.
-        $published_results = helper_publish_tournament($node->url);
        
-        if($published_results->error)
-        {
-            drupal_set_message(t('Error publishing the tournament: @error', array('@error' => $xml->error)));
-        }
         $xml = helper_add_tournament($node->title, $node->tournament_type, $node->url, $params);
         if ($xml->error)
         {
@@ -293,17 +292,51 @@
      */
     function challonge_update($node)
     {
-        //TODO: repeat code, refactor into helper_publish_tournament?
         if($node->publish){
            $published_results = helper_publish_tournament($node->url);
-           if($published_results->error)
-           {
+           if($published_results->error){
                drupal_set_message(t('Error publishing the tournament: @error', array('@error' => $xml->error)));
            }
         }
         if($node->start){
-           helper_start_tournament($node->url);
+           $tournament_start = helper_start_tournament($node->url);
+           if($tournament_start->error){
+               drupal_set_message(t('Error starting the tournament: @error', array('@error' => $xml->error)));
+           }
         }
+        //Reports the winners of each match.
+        drupal_set_message($node->match_count);
+        if($node->match_count){
+            for($i = 0; $i < $node->match_count; $i++){
+                $index = (string)($i+1);
+                $match_string = "match_$index";
+                $match_info = $node->match_settings[$index_string] ;
+                drupal_set_message(print_r($match_info, TRUE)); 
+                drupal_set_message(print_r($node->match_settings[$index_string], TRUE)); 
+                if($match_info['winner'] == 'none'){
+                    continue; 
+                }
+                //Puts the player scores into csv format.
+                $player1_score = 0;
+                $player2_score = 0;
+                if(isset($match_info['player1_score']) and is_int($match_info['player1_score'])){
+                    $player1_score = $match_info['player1_score'];
+                }
+                if(isset($match_info['player2_score']) and is_int($match_info['player2_score'])){
+                    $player2_score = $match_info['player2_score'];
+                }
+                $csv_score = $player1_score + ',' + $player2_score; 
+              
+                //and we then send the data to Challonge. 
+                drupal_set_message($match_info['match_id']);
+                $win_report = helper_report_winner($node->url, $match_info['match_id'], $match_info['winner'], $csv_score);  
+                if($win_report->error)
+                {
+                    drupal_set_message(t('Error reporting a match: @error', array('@error' => $win_report->error)));
+                }
+            }
+        }
+        //Stuff to do if the tournament exists.
         if ($tournament_id = db_result(db_query("SELECT tournament_id FROM {challonge_tournament} WHERE nid = %d", $node->nid)))
         {
             $params = challonge_init_tournament_params($node);
@@ -336,7 +369,6 @@
         if($matches->error){
             drupal_set_message(t('Unable to retrieve matches'));
         }
-        
 	return $node;
     }
 
@@ -364,7 +396,6 @@
             $output .= "</ul>";
             */
         }
-        
         $output .= "<div id='join'>". l(t('Click here to join this tournament'), 'challonge_join/'.$node->nid). "</div>";
         return $output;
 
@@ -374,6 +405,9 @@
      */
     function challonge_form(&$node, $form_state)
     {
+         //TODO: create the array for creating seeds.
+         //Probably should do that in JQuery.
+
         $items = array();
         $items['tournament_settings'] = array(
             '#type' => 'fieldset',
@@ -427,35 +461,65 @@
                 '#title' => t('Start')
             )
         );
+        //TODO: refactor into it's own function.
         if($node->url){
-             //TODO: create the array for creating seeds.
-             //$items['matches and participants'] = array();
-             //Create the array for reporting winners.
-             $matches = helper_get_matches($node->url);
+             $items['match_settings'] = array(
+                 '#type' => 'fieldset',
+                 '#title' => t('Report wins.'),
+                 '#collapsible' => FALSE,
+                 '#tree' => TRUE
+             );
+
+             //Match reporting.
+             $matches = helper_get_matches($node->url, TRUE);
              $options = array();
              $participants = helper_get_participants($matches, $node->url);
 
-             for($i = 0; $i < sizeof($participants); $i++)
+             $match_count = sizeof($matches);
+             for($i = 0; $i < $match_count; $i++)
              {
- 
-                $option = $participants[$i]; 
-                $option['none'] = 'none';
-                var_dump($option);
-                //normal indexing for normal people
-                $index= $i +1;
-                $options["match $index"] = array( 
+                $index= $i + 1;
+                $index_string = "match_$index";
+                $items['match_settings'][$index_string] = array(
+                     '#type' => 'fieldset',
+                     '#title' => t("match $index"),
+                     '#collapsible' => FALSE,
+                     '#tree' => TRUE
+                );
+                $items['match_settings'][$index_string]['match_id'] = array(
+                     '#type' => 'value',
+                     '#value' => $participants[$i]['match_id']
+                );
+                //Build the winner options
+                $options = $participants[$i]['participants'][0]; 
+                $names = array_values($options);
+                $player1 = $names[0];
+                $player2 = $names[1];
+
+                $options['none'] = 'none';
+
+                $items['match_settings'][$index_string]['winner'] = array( 
                     '#type' => 'select',
-                    '#title' => "match $index",
-                    '#options' => $option,
+                    '#title' => "winner",
+                    '#options' => $options,
                     '#default_value' => 'none'
                 );
+                //FIXME: currently the size is default even with the size tags.
+                $items['match_settings'][$index_string]['player1_score'] = array(
+                   '#type' => 'textfield',
+                   '#title' => t("$player1's score"),
+                   '#size' => 2,
+                   '#maxlength' => 2
+                );
+                $items['match_settings'][$index_string]['player2_score'] = array(
+                   '#type' => 'textfield',
+                   '#title' => t("$player2's score"),
+                   '#size' => 2,
+                   '#maxlength' => 2
+                );
+
              }
-             $items['match_settings'] = array(
-                 '#type' => 'fieldset',
-                 '#title' => t('Match settings'),
-                 '#collapsible' => TRUE
-             );
-             $items['match_settings']['match options'] = $options;
+             $items['match_count'] = array('#type' => 'value', '#value' => $match_count);
         }
         return $items; 
     }
@@ -485,6 +549,7 @@
      */
     function challonge_validate($node, &$form)
     {
+        //TODO: validate scores to make sure they're ints.
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $node->url))
         {
             form_set_error('challonge_url', t('The url must only contain letters, numbers and underscores.'));
