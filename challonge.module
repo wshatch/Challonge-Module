@@ -215,7 +215,7 @@
                                       'page callback' => 'challonge_test',
                                       'type' => MENU_CALLBACK
                                      );
-        $items['node/%node/publish'] = array(
+        $items['node/%challonge_menu_publish/publish'] = array(
             'title' => t('Publish'),
             'description' => t('Initiates the publish action on Challonge.'),
             'file' => 'challonge.pages.inc',
@@ -224,7 +224,7 @@
             'access arguments' => array('publish tournaments'),
             'type' => MENU_LOCAL_TASK
         );
-        $items['node/%node/start'] = array(
+        $items['node/%challonge_menu_start/start'] = array(
             'title' => t('Start'),
             'description' => t('Initiates the start action on Challonge.'),
             'file' => 'challonge.pages.inc',
@@ -234,6 +234,40 @@
             'type' => MENU_LOCAL_TASK
         );
         return $items;
+    }
+
+    function challonge_menu_publish_load($nid)
+    {
+        $node = node_load($nid);
+        if (empty($node->type) || $node->type != 'tournament')
+        {
+            return false;
+        }
+        $tournament = new ChallongeTournament();
+        $xml = $tournament->reqShow($node->tournament_id);
+        $published_at = $xml->xpath('published-at');
+        if ($published_at[0]['nil'] != "true")
+        {
+            return false;
+        }
+        return $node;
+    }
+
+    function challonge_menu_start_load($nid)
+    {
+        $node = node_load($nid);
+        if (empty($node->type) || $node->type != 'tournament')
+        {
+            return false;
+        }
+        $tournament = new ChallongeTournament();
+        $xml = $tournament->reqShow($node->tournament_id);
+        $started_at = $xml->xpath('started-at');
+        if ($started_at[0]['nil'] != "true")
+        {
+            return false;
+        }
+        return $node;
     }
 
     /**
