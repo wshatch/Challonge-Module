@@ -25,9 +25,9 @@
 
     function helper_report_winner($tournament_id, $match_id, $winner_id, $scores)
     {
-        $match = new ChallongeMatch($toournament_id);
+        $match = new ChallongeMatch($tournament_id);
         $match_params = array();
-        $match_params['match']['winner_id'] = $winnder_id;
+        $match_params['match']['winner_id'] = $winner_id;
         $match_params['match']['scores_csv'] = $scores;
         $match->setParams($match_params);
         return $match->reqUpdate($match_id);
@@ -305,7 +305,6 @@
            }
         }
         //Reports the winners of each match.
-        drupal_set_message($node->match_count);
         if($node->match_count){
             for($i = 0; $i < $node->match_count; $i++){
                 $match_info = $node->match_settings[$i] ;
@@ -315,16 +314,18 @@
                 //Puts the player scores into csv format.
                 $player1_score = 0;
                 $player2_score = 0;
-                if(isset($match_info['player1_score']) and is_int($match_info['player1_score'])){
+                if(isset($match_info['player1_score']) and intval($match_info['player1_score'])){
                     $player1_score = $match_info['player1_score'];
                 }
-                if(isset($match_info['player2_score']) and is_int($match_info['player2_score'])){
+                if(isset($match_info['player2_score']) and intval($match_info['player2_score'])){
                     $player2_score = $match_info['player2_score'];
                 }
-                $csv_score = $player1_score + ',' + $player2_score; 
-              
+                //doing the appending the long way because it's late, my brain hurts, and normal way gives me a sum.
+                $csv_score = (string)$player1_score;
+                $csv_score .= '-';
+                $csv_score .= (string)$player2_score;
+                //$csv_score = (string)$player1_score + ',' + (string)$player2_score; 
                 //and we then send the data to Challonge. 
-                drupal_set_message($match_info['match_id']);
                 $win_report = helper_report_winner($node->url, $match_info['match_id'], $match_info['winner'], $csv_score);  
                 if($win_report->error)
                 {
