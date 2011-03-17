@@ -290,7 +290,6 @@
     function challonge_delete(&$node)
     {
         $tournament = new ChallongeTournament();
-        //FIXME: currently, the tournament isn't destroyed on Challonge's end.
         $xml = $tournament->reqDestroy($node->url);
         if($xml->error){
             drupal_set_message(t('Unable to delete the tournament from the Challonge account.'), 'error');
