@@ -35,14 +35,14 @@
 
     function helper_publish_tournament($tournament_id)
     {
-       $tournament = new ChallongeTournament();
-       return $tournament->reqPublish($tournament_id); 
+        $tournament = new ChallongeTournament();
+        return $tournament->reqPublish($tournament_id); 
     }
 
     function helper_start_tournament($tournament_id)
     {
-       $tournament = new ChallongeTournament();
-       $tournament->reqStart($tournament_id);
+        $tournament = new ChallongeTournament();
+        return $tournament->reqStart($tournament_id);
     }
 
     function helper_get_matches($tournament_id, $active_only = FALSE)
@@ -184,7 +184,7 @@
      */
     function challonge_perm()
     {
-        return array('administer challonge', 'create tournaments', 'join tournaments');
+        return array('administer challonge', 'create tournaments', 'join tournaments', 'publish tournaments', 'start tournaments');
     }
 
     /**
@@ -215,6 +215,24 @@
                                       'page callback' => 'challonge_test',
                                       'type' => MENU_CALLBACK
                                      );
+        $items['node/%node/publish'] = array(
+            'title' => t('Publish'),
+            'description' => t('Initiates the publish action on Challonge.'),
+            'file' => 'challonge.pages.inc',
+            'page callback' => 'drupal_get_form',
+            'page arguments' => array('challonge_publish_confirm', 1),
+            'access arguments' => array('publish tournaments'),
+            'type' => MENU_LOCAL_TASK
+        );
+        $items['node/%node/start'] = array(
+            'title' => t('Start'),
+            'description' => t('Initiates the start action on Challonge.'),
+            'file' => 'challonge.pages.inc',
+            'page callback' => 'drupal_get_form',
+            'page arguments' => array('challonge_start_confirm', 1),
+            'access arguments' => array('start tournaments'),
+            'type' => MENU_LOCAL_TASK
+        );
         return $items;
     }
 
@@ -292,18 +310,6 @@
      */
     function challonge_update($node)
     {
-        if($node->publish){
-           $published_results = helper_publish_tournament($node->url);
-           if($published_results->error){
-               drupal_set_message(t('Error publishing the tournament: @error', array('@error' => $xml->error)));
-           }
-        }
-        if($node->start){
-           $tournament_start = helper_start_tournament($node->url);
-           if($tournament_start->error){
-               drupal_set_message(t('Error starting the tournament: @error', array('@error' => $xml->error)));
-           }
-        }
         //Reports the winners of each match.
         if($node->match_count){
             for($i = 0; $i < $node->match_count; $i++){
@@ -448,14 +454,6 @@
                 '#title' => t('Challonge Subdomain'),
                 '#default_value' => $node->subdomain,
                 '#required' => false
-            ),
-            'publish' => array(
-                '#type' => 'checkbox',
-                '#title' => t('Publish') 
-            ),
-            'start' => array(
-                '#type' => 'checkbox',
-                '#title' => t('Start')
             )
         );
         //TODO: refactor into it's own function.
