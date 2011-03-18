@@ -312,9 +312,9 @@
         {
             $params['subdomain'] = $node->subdomain;
         }
-        if(strlen($node->description) > 0)
+        if(strlen($node->body) > 0)
         {
-            $params['description'] = $node->description;
+            $params['description'] = $node->body;
         }
         return $params;
     }
