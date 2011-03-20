@@ -66,20 +66,21 @@ function challonge_schema()
                'type' => 'varchar',
                'length' => 255,
                'not null' => true
-          );
+          ),
           'tid' => array(
                'description' => 'The database\'s id for the tournament cache',
                'type' => 'int',
                'unsigned' => true,
                'not null' => true
-          );
+          ),
        ),
        'foreign keys' => array(
           'tournament' => array(
                  'table' => 'challonge_tournament',
                  'columns' => array('tid' => 'id')
           )
-       )
+       ),
+       'primary key' => array('id'),
     );
     $schema['challonge_participants'] = array(
        'fields' => array(
@@ -107,12 +108,12 @@ function challonge_schema()
                'length' => 255,
                'not null' => true
           )
-       )
+       ),
+       'primary key' => array('id'),
     );
 
     $schema['match_participants'] = array(
         'description' => 'Table to map a 0-N relationship between matches and participants.',
-
         'fields' => array(
            'id' => array(
                'description' => 'The primary key',
@@ -123,13 +124,13 @@ function challonge_schema()
            ),
            'pid' => array(
                'description' => 'The id from the participant table',
-               'type' => 'serial',
+               'type' => 'int',
                'unsigned' => true,
                'not null' => true
            ),
            'mid' => array(
                'description' => 'The id from the participant table',
-               'type' => 'serial',
+               'type' => 'int',
                'unsigned' => true,
                'not null' => true
 
@@ -145,8 +146,10 @@ function challonge_schema()
                  'table' => 'challonge_matches',
                  'columns' => array('mid' => 'id')
            )
-        )
+        ),
+       'primary key' => array('id'),
     );
+    return $schema;
 }
 
 /**
