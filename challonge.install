@@ -5,8 +5,7 @@
  */
 function challonge_schema()
 {
-    return array(
-        'challonge_tournament' => array(
+    $schema['challonge_tournament'] = array(
             'description' => 'The Challonge Tournament information to append to the respective node',
             'fields' => array(
                 'id' => array(
@@ -52,11 +51,102 @@ function challonge_schema()
                 'tournament_id' => array('tournament_id'),
                 'url_subdomain' => array('url', 'subdomain')
             )
+        );
+    $schema['challonge_matches'] = array(
+       'description' => 'Matches that are in the Challonge tournament.',
+       'fields' => array(
+          'id' => array(
+               'description' => 'The primary key',
+               'type' => 'serial',
+               'unsigned' => true,
+               'not null' => true
+          ),
+          'match_id' => array(
+               'description' => 'The match id from Challonge',
+               'type' => 'varchar',
+               'length' => 255,
+               'not null' => true
+          );
+          'tid' => array(
+               'description' => 'The database\'s id for the tournament cache',
+               'type' => 'int',
+               'unsigned' => true,
+               'not null' => true
+          );
+       ),
+       'foreign keys' => array(
+          'tournament' => array(
+                 'table' => 'challonge_tournament',
+                 'columns' => array('tid' => 'id')
+          )
+       )
+    );
+    $schema['challonge_participants'] = array(
+       'fields' => array(
+          'id' => array(
+               'description' => 'The primary key',
+               'type' => 'serial',
+               'unsigned' => true,
+               'not null' => true
+          ),
+          'participant_id' => array(
+               'description' => 'the key challonge gives us',
+               'type' => 'varchar',
+               'length' => 255,
+               'not null' => true
+          ),
+          'tournament_id' => array(
+               'description' => 'the match the participant belongs to.',
+               'type' => 'varchar',
+               'length' => 255,
+               'not null' => true 
+          ),
+          'name' => array(
+               'description' => 'participant name according to Challonge',
+               'type' => 'varchar',
+               'length' => 255,
+               'not null' => true
+          )
+       )
+    );
+
+    $schema['match_participants'] = array(
+        'description' => 'Table to map a 0-N relationship between matches and participants.',
+
+        'fields' => array(
+           'id' => array(
+               'description' => 'The primary key',
+               'type' => 'serial',
+               'unsigned' => true,
+               'not null' => true
+
+           ),
+           'pid' => array(
+               'description' => 'The id from the participant table',
+               'type' => 'serial',
+               'unsigned' => true,
+               'not null' => true
+           ),
+           'mid' => array(
+               'description' => 'The id from the participant table',
+               'type' => 'serial',
+               'unsigned' => true,
+               'not null' => true
+
+           ),
+        ),
+        'foreign keys' => array(
+           'pid' => array(
+                 'table' => 'challonge_participants',
+                 'columns' => array('pid' => 'id')
+
+           ),
+           'mid' => array(
+                 'table' => 'challonge_matches',
+                 'columns' => array('mid' => 'id')
+           )
         )
     );
-    //$schema['cache_tournaments'];
-    //$schema['cache_matches'];
-    //$schema['cache_participants'];
 }
 
 /**

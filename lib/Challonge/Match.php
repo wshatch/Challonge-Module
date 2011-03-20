@@ -26,5 +26,17 @@ class ChallongeMatch extends ChallongeAPI
     {
         return $this->request("/{$this->tournament_id}/matches/$id", 'put');
     }
+
+    /**
+     * Function used to report the winner of a match
+     */
+    public function reportWinner($match_id, $winner_id, $scores)
+    {
+         $params = array();
+         $params['match']['winner_id'] = $winner_id;
+         $params['match']['scores_csv'] = $scores;
+         $this->setParams($params);
+         return $this->reqUpdate($match_id);
+    }
 }
 

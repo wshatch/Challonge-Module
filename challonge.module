@@ -1,5 +1,7 @@
 <?php
-
+    /**Notes: when we need to cache
+       1) Matches should be cached after
+    */
     require_once(dirname(__FILE__) . '/lib/challonge.php');
     module_load_include('inc', 'node', 'node.pages');
     ChallongeAPI::$api_key = variable_get('challonge_api_key', '');
@@ -26,11 +28,7 @@
     function helper_report_winner($tournament_id, $match_id, $winner_id, $scores)
     {
         $match = new ChallongeMatch($tournament_id);
-        $match_params = array();
-        $match_params['match']['winner_id'] = $winner_id;
-        $match_params['match']['scores_csv'] = $scores;
-        $match->setParams($match_params);
-        return $match->reqUpdate($match_id);
+        return $match->reportWinner($match_id, $winner_id, $scores);
     }
 
     function helper_publish_tournament($tournament_id)
@@ -64,7 +62,6 @@
             $match_array[] = $match;
         }
         return $match_array;
-        
     }
 
     function helper_edit_tournament($tournament_id, $name, $type, $url, $optional = array())
@@ -98,7 +95,13 @@
 
         $participant = new ChallongeParticipant($tournament_id);
         $participant->setParams($participant_params);
-        return $participant->reqCreate();
+        $participant_xml = $participant->reqCreate();
+        $participant_id = $participant_xml->id;
+        //TODO: error handling
+        db_query("INSERT INTO {challonge_participants} (participant_id, tournament_id, 'name') 
+                 VALUES (%s, %s, %s)", 
+                 $participant_id, $tournament_id, $user->$char_name_field);
+        return $participant_xml;
     }
 
     /**
@@ -111,8 +114,7 @@
         if($matches == NULL){
             return NULL;
         } 
-        /*TODO: Code probabaly needs to be optimize to lower requests
-          to challonge*/
+        //TODO: rewrite the following loop as an SQL statement. 
         foreach($matches as $match)
         {
             //Get the two player info for the current matches.
@@ -123,6 +125,7 @@
             $player2_id = $player2_id[0];
 
             $participant = new ChallongeParticipant($tournament_id);
+            //TODO: access info from the cache.
             if($player1_id != ''){
                 $player_1_xml = $participant->reqShow($player1_id);
                 $player1 = (string)$player_1_xml->name;
@@ -346,7 +349,7 @@
         //Reports the winners of each match.
         if($node->match_count){
             for($i = 0; $i < $node->match_count; $i++){
-                $match_info = $node->match_settings[$i] ;
+                $match_info = $node->match_settings[$i];
                 if($match_info['winner'] == 'none'){
                     continue; 
                 }
