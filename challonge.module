@@ -34,12 +34,14 @@
     function helper_publish_tournament($tournament_id)
     {
         $tournament = new ChallongeTournament();
+        db_query("UPDATE {challonge_tournament} SET is_published = 1 WHERE tournament_id = '%s'", $tournament_id);
         return $tournament->reqPublish($tournament_id); 
     }
 
     function helper_start_tournament($tournament_id)
     {
         $tournament = new ChallongeTournament();
+        db_query("UPDATE {challonge_tournament} SET is_started = 1 WHERE tournament_id = '%s'", $tournament_id);
         return $tournament->reqStart($tournament_id);
     }
 
@@ -96,10 +98,12 @@
         $participant = new ChallongeParticipant($tournament_id);
         $participant->setParams($participant_params);
         $participant_xml = $participant->reqCreate();
+        if($participant_xml->error){
+            return $participant_xml;
+        }
         $participant_id = $participant_xml->id;
-        //TODO: error handling
-        db_query("INSERT INTO {challonge_participants} (participant_id, tournament_id, 'name') 
-                 VALUES (%s, %s, %s)", 
+        db_query("INSERT INTO {challonge_participants} (participant_id, tournament_id, name) 
+                 VALUES (%d, %d, '%s')", 
                  $participant_id, $tournament_id, $user->$char_name_field);
         return $participant_xml;
     }
@@ -108,7 +112,7 @@
      * Helper function that returns an array of participants
      * in ACTIVE matches. Return NULL if there are none.
      */
-    function helper_get_participants($matches, $tournament_id)
+    function helper_get_participants($tournament_id, $matches = NULL)
     {
         $participant_array = array();
         if($matches == NULL){
@@ -246,11 +250,9 @@
         {
             return false;
         }
-        $tournament = new ChallongeTournament();
-        $xml = $tournament->reqShow($node->tournament_id);
-        $published_at = $xml->xpath('published-at');
-        if ($published_at[0]['nil'] != "true")
-        {
+        $is_published= db_query('SELECT is_published FROM {challonge_tournament} WHERE nid = %d', $nid);
+        $result = (int) db_result($is_published);
+        if($result){
             return false;
         }
         return $node;
@@ -263,10 +265,11 @@
         {
             return false;
         }
-        $tournament = new ChallongeTournament();
-        $xml = $tournament->reqShow($node->tournament_id);
-        $started_at = $xml->xpath('started-at');
-        if ($started_at[0]['nil'] != "true")
+        //TODO: use the database instead.
+        $is_published = db_query('SELECT is_started FROM {challonge_tournament} WHERE nid = %d', $nid);
+        $result = (int)db_result($is_published);
+        var_dump($result);
+        if($result)
         {
             return false;
         }
@@ -293,7 +296,7 @@
     function challonge_delete(&$node)
     {
         $tournament = new ChallongeTournament();
-        $xml = $tournament->reqDestroy($node->url);
+        $xml = $tournament->reqDestroy($node->tournament_id);
         if($xml->error){
             drupal_set_message(t('Unable to delete the tournament from the Challonge account.'), 'error');
         } 
@@ -502,9 +505,9 @@
              );
 
              //Match reporting.
-             $matches = helper_get_matches($node->url, TRUE);
+             $matches = helper_get_matches($node->tournament_id, TRUE);
              $options = array();
-             $participants = helper_get_participants($matches, $node->url);
+             $participants = helper_get_participants($node->tournament_id, $matches);
 
              $match_count = sizeof($matches);
              for($i = 0; $i < $match_count; $i++)
@@ -566,7 +569,7 @@
              //We can't join a tournament that's not there.
              return theme('challonge_join', 'Unable to find the tournament with the id ' . $node->url);
         }
-        $participant = helper_add_participant($node->url, $user->uid);
+        $participant = helper_add_participant($node->tournament_id, $user->uid);
         if($participant->error)
         {
              return theme('challonge_join', $participant->error);

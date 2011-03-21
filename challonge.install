@@ -43,7 +43,22 @@ function challonge_schema()
                     'type' => 'varchar',
                     'length' => 160,
                     'not null' => true
-                )
+                ),
+                'is_started' => array(
+                    'description' => 'Challonge variable to check if the tournament started.',
+                    'type' => 'int',
+                    'length' => 1,
+                    'not null' => true,
+                    'default' => 0
+                 ),
+                'is_published' => array(
+                    'description' => 'Challonge variable to check if the tournament is published.',
+                    'type' => 'int',
+                    'length' => 1,
+                    'not null' => true,
+                    'default' => 0
+                 ),
+
             ),
             'primary key' => array('id'),
             'unique keys' => array(
