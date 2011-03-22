@@ -34,15 +34,21 @@
     function helper_publish_tournament($tournament_id)
     {
         $tournament = new ChallongeTournament();
-        db_query("UPDATE {challonge_tournament} SET is_published = 1 WHERE tournament_id = '%s'", $tournament_id);
-        return $tournament->reqPublish($tournament_id); 
+        $return_xml = $tournament->reqPublish($tournament_id); 
+        if(!$return_xml->error){
+            db_query("UPDATE {challonge_tournament} SET is_published = 1 WHERE tournament_id = '%s'", $tournament_id);
+        }
+        return $return_xml;
     }
 
     function helper_start_tournament($tournament_id)
     {
         $tournament = new ChallongeTournament();
-        db_query("UPDATE {challonge_tournament} SET is_started = 1 WHERE tournament_id = '%s'", $tournament_id);
-        return $tournament->reqStart($tournament_id);
+        $return_xml = $tournament->reqStart($tournament_id);
+        if(!$return_xml->error){
+            db_query("UPDATE {challonge_tournament} SET is_started = 1 WHERE tournament_id = '%s'", $tournament_id);
+        }
+        return $return_xml;
     }
 
     function helper_get_matches($tournament_id, $active_only = FALSE)
@@ -268,7 +274,6 @@
         //TODO: use the database instead.
         $is_published = db_query('SELECT is_started FROM {challonge_tournament} WHERE nid = %d', $nid);
         $result = (int)db_result($is_published);
-        var_dump($result);
         if($result)
         {
             return false;
