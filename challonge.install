@@ -78,12 +78,12 @@ function challonge_schema()
           ),
           'match_id' => array(
                'description' => 'The match id from Challonge',
-               'type' => 'varchar',
-               'length' => 255,
+               'type' => 'int',
+               'unsigned' => true,
                'not null' => true
           ),
-          'tid' => array(
-               'description' => 'The database\'s id for the tournament cache',
+          'tournament_id' => array(
+               'description' => 'The challonge id for the tournament cache',
                'type' => 'int',
                'unsigned' => true,
                'not null' => true
@@ -92,10 +92,11 @@ function challonge_schema()
        'foreign keys' => array(
           'tournament' => array(
                  'table' => 'challonge_tournament',
-                 'columns' => array('tid' => 'id')
+                 'columns' => array('tournament_id' => 'tournament_id')
           )
        ),
        'primary key' => array('id'),
+       'unique keys' => array('match_id' => array('match_id'))
     );
     $schema['challonge_participants'] = array(
        'fields' => array(
@@ -107,14 +108,14 @@ function challonge_schema()
           ),
           'participant_id' => array(
                'description' => 'the key challonge gives us',
-               'type' => 'varchar',
-               'length' => 255,
+               'type' => 'int',
+               'unsigned' => true,
                'not null' => true
           ),
           'tournament_id' => array(
                'description' => 'the match the participant belongs to.',
-               'type' => 'varchar',
-               'length' => 255,
+               'type' => 'int',
+               'unsigned' => true,
                'not null' => true 
           ),
           'name' => array(
@@ -137,29 +138,34 @@ function challonge_schema()
                'not null' => true
 
            ),
-           'pid' => array(
+           'participant_id' => array(
                'description' => 'The id from the participant table',
                'type' => 'int',
                'unsigned' => true,
                'not null' => true
            ),
-           'mid' => array(
+           'match_id' => array(
                'description' => 'The id from the participant table',
                'type' => 'int',
                'unsigned' => true,
                'not null' => true
 
            ),
+           'seed' => array(
+               'description' => '1 for player 1 2 for player 2',
+               'type' => 'int',
+               'not null' => true
+           )
         ),
         'foreign keys' => array(
-           'pid' => array(
+           'participant_id' => array(
                  'table' => 'challonge_participants',
-                 'columns' => array('pid' => 'id')
+                 'columns' => array('participant_id' => 'participant_id')
 
            ),
-           'mid' => array(
+           'match_id' => array(
                  'table' => 'challonge_matches',
-                 'columns' => array('mid' => 'id')
+                 'columns' => array('match_id' => 'match_id')
            )
         ),
        'primary key' => array('id'),
