@@ -152,7 +152,7 @@ function challonge_schema()
 
            ),
            'seed' => array(
-               'description' => '1 for player 1 2 for player 2',
+               'description' => 'the player seed.',
                'type' => 'int',
                'not null' => true
            )

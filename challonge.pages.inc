@@ -75,4 +75,3 @@ function challonge_start_confirm_submit($form, &$form_state)
 
     drupal_goto('node/' . $node->nid);
 }
-

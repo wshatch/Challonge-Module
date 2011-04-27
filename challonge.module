@@ -3,9 +3,6 @@
     module_load_include('inc', 'node', 'node.pages');
     ChallongeAPI::$api_key = variable_get('challonge_api_key', '');
 
-    $challonge_has_matches;
-    $challonge_match_count;
-
     //TODO: most of these helper functions could probably be refactored into the challonge
    //library.
     function helper_add_tournament($name, $type, $url, $optional = array())
@@ -227,6 +224,19 @@
     }
 
     /**
+     * Implementation of hook_access().
+     */
+    function challonge_access($op, $node, $account){
+      switch($op){
+        case 'create':
+          return user_access('create tournaments', $account) || (user_access('administer challonge'))  && $account->uid ? TRUE : NULL;
+        case 'update':
+          return user_access('administer challonge') || (user_access('create tournaments', $account)) && ($node->uid == $account->uid) ?TRUE : NULL;
+        case 'delete':
+          return user_access('administer challonge') || (user_access('create tournaments', $account)) && ($node->uid == $account->uid) ?TRUE : NULL;
+      }
+    }
+    /**
      * Implementation of hook_menu
      */
     function challonge_menu()
@@ -248,18 +258,23 @@
                                              'access arguments' => array('join tournaments'),
                                              'type' => MENU_CALLBACK
         );
-        $items['challonge/test'] = array(
-                                      'title' => t('test'),
-                                      'access arguments' => array('join tournaments'),
-                                      'page callback' => 'challonge_test',
-                                      'type' => MENU_CALLBACK
-                                     );
+
+        $items['node/%challonge_menu_seeds/manage_seeds'] = array(
+                                                         'title' => t('Manage seeds'),
+                                                         'description' => t('Sets the order of seeds for the tournament'),
+                                                         'page callback' => 'challonge_seeds', 
+                                                         'page arguments' => array(1),
+                                                         'access arguments' => array('create tournaments'),
+                                                         'type' => MENU_LOCAL_TASK
+                                                     );
+
         $items['node/%challonge_menu_publish/publish'] = array(
             'title' => t('Publish'),
             'description' => t('Initiates the publish action on Challonge.'),
             'file' => 'challonge.pages.inc',
             'page callback' => 'drupal_get_form',
             'page arguments' => array('challonge_publish_confirm', 1),
+            //TODO: access callback.
             'access arguments' => array('publish tournaments'),
             'type' => MENU_LOCAL_TASK
         );
@@ -269,6 +284,7 @@
             'file' => 'challonge.pages.inc',
             'page callback' => 'drupal_get_form',
             'page arguments' => array('challonge_start_confirm', 1),
+            //TODO: access callback.
             'access arguments' => array('start tournaments'),
             'type' => MENU_LOCAL_TASK
         );
@@ -306,6 +322,17 @@
         return $node;
     }
 
+    function challonge_seeds($nid)
+    {
+        $node = node_load($nid);
+        if (empty($node->type) || $node->type != 'tournament')
+        {
+            return false;
+        }
+        var_dump($node); 
+        //TODO: finish this function.
+        return "foo";
+    }
     /**
      * Implementation of hook_node_info
      */
